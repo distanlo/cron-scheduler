@@ -11,7 +11,8 @@ jobs:
     steps:
       - name: Trigger processor
         run: |
-          curl -sS -X GET \
+          curl -fsS -X GET \
+            --retry 2 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "$APP_BASE_URL/api/cron/process"
         env:
