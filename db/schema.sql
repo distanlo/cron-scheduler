@@ -3,6 +3,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS app_settings (
   id INTEGER PRIMARY KEY,
   model_api_key_enc TEXT,
+  brave_api_key_enc TEXT,
   model_base_url TEXT NOT NULL DEFAULT 'https://openrouter.ai/api/v1',
   model_name TEXT NOT NULL DEFAULT 'openrouter/free',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -39,6 +40,11 @@ CREATE TABLE IF NOT EXISTS cron_jobs (
   recurring_weekday SMALLINT,
   run_at TIMESTAMPTZ,
   next_run TIMESTAMPTZ,
+  use_web_search BOOLEAN NOT NULL DEFAULT FALSE,
+  web_search_query TEXT,
+  web_result_count SMALLINT NOT NULL DEFAULT 5,
+  web_freshness_hours INTEGER NOT NULL DEFAULT 72,
+  preferred_domains_csv TEXT,
   discord_webhook_url TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
   last_run_at TIMESTAMPTZ,
@@ -51,3 +57,21 @@ CREATE TABLE IF NOT EXISTS cron_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_cron_jobs_due
 ON cron_jobs (status, next_run);
+
+ALTER TABLE app_settings
+ADD COLUMN IF NOT EXISTS brave_api_key_enc TEXT;
+
+ALTER TABLE cron_jobs
+ADD COLUMN IF NOT EXISTS use_web_search BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE cron_jobs
+ADD COLUMN IF NOT EXISTS web_search_query TEXT;
+
+ALTER TABLE cron_jobs
+ADD COLUMN IF NOT EXISTS web_result_count SMALLINT NOT NULL DEFAULT 5;
+
+ALTER TABLE cron_jobs
+ADD COLUMN IF NOT EXISTS web_freshness_hours INTEGER NOT NULL DEFAULT 72;
+
+ALTER TABLE cron_jobs
+ADD COLUMN IF NOT EXISTS preferred_domains_csv TEXT;

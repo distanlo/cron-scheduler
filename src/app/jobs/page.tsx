@@ -8,7 +8,8 @@ async function getJobs(): Promise<CronJobRow[]> {
   try {
     const result = await getPool().query<CronJobRow>(
       `SELECT id, title, prompt, is_recurring, recurrence, recurring_time, recurring_weekday,
-              run_at, next_run, discord_webhook_url, status, last_run_at, last_output,
+              run_at, next_run, use_web_search, web_search_query, web_result_count,
+              web_freshness_hours, preferred_domains_csv, discord_webhook_url, status, last_run_at, last_output,
               created_at, updated_at
        FROM cron_jobs
        ORDER BY created_at DESC`

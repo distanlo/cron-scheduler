@@ -4,7 +4,8 @@ import { RECURRENCE_VALUES } from "@/lib/types";
 export const settingsSchema = z.object({
   modelBaseUrl: z.string().url(),
   modelName: z.string().min(1),
-  modelApiKey: z.string().min(1).optional()
+  modelApiKey: z.string().min(1).optional(),
+  braveApiKey: z.string().min(1).optional()
 });
 
 const baseJobSchema = z.object({
@@ -15,6 +16,11 @@ const baseJobSchema = z.object({
   recurringTime: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
   recurringWeekday: z.number().int().min(0).max(6).nullable(),
   runAt: z.string().datetime().nullable(),
+  useWebSearch: z.boolean().default(false),
+  webSearchQuery: z.string().min(1).nullable(),
+  webResultCount: z.number().int().min(1).max(10).default(5),
+  webFreshnessHours: z.number().int().min(1).max(720).default(72),
+  preferredDomainsCsv: z.string().nullable(),
   discordWebhookUrl: z.string().url()
 });
 

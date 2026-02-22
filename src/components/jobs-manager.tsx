@@ -9,6 +9,18 @@ type JobsManagerProps = {
   initialJobs: CronJobRow[];
 };
 
+function toUtcIsoFromParts(datePart: string, timePart: string): string | null {
+  if (!datePart || !timePart) {
+    return null;
+  }
+  return new Date(`${datePart}T${timePart}:00Z`).toISOString();
+}
+
+function parseUtcTime(raw: string): string | null {
+  const value = raw.trim();
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
+}
+
 export function JobsManager({ initialJobs }: JobsManagerProps) {
   const [jobs, setJobs] = useState(initialJobs);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -45,21 +57,40 @@ export function JobsManager({ initialJobs }: JobsManagerProps) {
   async function saveJob(formData: FormData, jobId: string) {
     setMsg("Saving job...");
     const isRecurring = String(formData.get("isRecurring") || "") === "recurring";
+    const useWebSearch = String(formData.get("useWebSearch") || "") === "enabled";
     const recurrence = String(formData.get("recurrence") || "") as RecurrenceType;
+    const recurringTime = parseUtcTime(String(formData.get("recurringTime") || ""));
+    const runAtTime = parseUtcTime(String(formData.get("runAtTime") || ""));
+
+    if (isRecurring && !recurringTime) {
+      setMsg("Update failed: time must be HH:mm in UTC (example: 23:47)");
+      return;
+    }
+    if (!isRecurring && !runAtTime) {
+      setMsg("Update failed: one-time time must be HH:mm in UTC (example: 23:47)");
+      return;
+    }
 
     const payload = {
       title: String(formData.get("title") || ""),
       prompt: String(formData.get("prompt") || ""),
       isRecurring,
       recurrence: isRecurring ? recurrence : null,
-      recurringTime: isRecurring ? String(formData.get("recurringTime") || "") : null,
+      recurringTime: isRecurring ? recurringTime : null,
       recurringWeekday:
         isRecurring && recurrence === "weekly" ? Number(formData.get("recurringWeekday")) : null,
       runAt: !isRecurring
         ? (() => {
-            const value = String(formData.get("runAt") || "");
-            return value ? new Date(value).toISOString() : null;
+            const datePart = String(formData.get("runAtDate") || "");
+            return toUtcIsoFromParts(datePart, runAtTime ?? "");
           })()
+        : null,
+      useWebSearch,
+      webSearchQuery: useWebSearch ? String(formData.get("webSearchQuery") || "") || null : null,
+      webResultCount: useWebSearch ? Number(formData.get("webResultCount") || 5) : 5,
+      webFreshnessHours: useWebSearch ? Number(formData.get("webFreshnessHours") || 72) : 72,
+      preferredDomainsCsv: useWebSearch
+        ? String(formData.get("preferredDomainsCsv") || "") || null
         : null,
       discordWebhookUrl: String(formData.get("discordWebhookUrl") || ""),
       status: String(formData.get("status") || "active")
@@ -197,8 +228,15 @@ export function JobsManager({ initialJobs }: JobsManagerProps) {
                 </select>
               </div>
               <div>
-                <label htmlFor="edit-time">Recurring Time (UTC)</label>
-                <input id="edit-time" name="recurringTime" type="time" defaultValue={activeEditJob.recurring_time ?? "00:00"} />
+                <label htmlFor="edit-time">Recurring Time (UTC, HH:mm)</label>
+                <input
+                  id="edit-time"
+                  name="recurringTime"
+                  type="text"
+                  placeholder="23:00"
+                  inputMode="numeric"
+                  defaultValue={activeEditJob.recurring_time ?? "00:00"}
+                />
               </div>
               <div>
                 <label htmlFor="edit-weekday">Weekly Day</label>
@@ -211,12 +249,70 @@ export function JobsManager({ initialJobs }: JobsManagerProps) {
                 </select>
               </div>
               <div>
-                <label htmlFor="edit-run-at">One-time Run At (UTC)</label>
+                <label htmlFor="edit-run-at-date">One-time Run Date (UTC)</label>
                 <input
-                  id="edit-run-at"
-                  name="runAt"
-                  type="datetime-local"
-                  defaultValue={activeEditJob.run_at ? new Date(activeEditJob.run_at).toISOString().slice(0, 16) : ""}
+                  id="edit-run-at-date"
+                  name="runAtDate"
+                  type="date"
+                  defaultValue={activeEditJob.run_at ? new Date(activeEditJob.run_at).toISOString().slice(0, 10) : ""}
+                />
+                <label htmlFor="edit-run-at-time">One-time Run Time (UTC, HH:mm)</label>
+                <input
+                  id="edit-run-at-time"
+                  name="runAtTime"
+                  type="text"
+                  placeholder="23:00"
+                  inputMode="numeric"
+                  defaultValue={activeEditJob.run_at ? new Date(activeEditJob.run_at).toISOString().slice(11, 16) : ""}
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-use-web-search">Live Web Grounding</label>
+                <select
+                  id="edit-use-web-search"
+                  name="useWebSearch"
+                  defaultValue={activeEditJob.use_web_search ? "enabled" : "disabled"}
+                >
+                  <option value="disabled">Disabled</option>
+                  <option value="enabled">Use Brave Search</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="edit-web-search-query">Web Query (optional)</label>
+                <input
+                  id="edit-web-search-query"
+                  name="webSearchQuery"
+                  defaultValue={activeEditJob.web_search_query ?? ""}
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-web-result-count">Result Count (1-10)</label>
+                <input
+                  id="edit-web-result-count"
+                  name="webResultCount"
+                  type="number"
+                  min={1}
+                  max={10}
+                  defaultValue={activeEditJob.web_result_count ?? 5}
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-web-freshness-hours">Freshness Window (hours)</label>
+                <input
+                  id="edit-web-freshness-hours"
+                  name="webFreshnessHours"
+                  type="number"
+                  min={1}
+                  max={720}
+                  defaultValue={activeEditJob.web_freshness_hours ?? 72}
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-preferred-domains">Preferred Domains (comma-separated)</label>
+                <input
+                  id="edit-preferred-domains"
+                  name="preferredDomainsCsv"
+                  defaultValue={activeEditJob.preferred_domains_csv ?? ""}
                 />
               </div>
             </div>

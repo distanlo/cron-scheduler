@@ -21,6 +21,11 @@ export type CronJobRow = {
   recurring_weekday: number | null;
   run_at: string | null;
   next_run: string;
+  use_web_search: boolean;
+  web_search_query: string | null;
+  web_result_count: number;
+  web_freshness_hours: number;
+  preferred_domains_csv: string | null;
   discord_webhook_url: string;
   status: string;
   last_run_at: string | null;

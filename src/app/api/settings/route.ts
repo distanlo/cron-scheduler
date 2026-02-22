@@ -7,17 +7,19 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     const parsed = settingsSchema.parse(json);
+    const encryptedModelApiKey = parsed.modelApiKey ? encrypt(parsed.modelApiKey) : null;
+    const encryptedBraveApiKey = parsed.braveApiKey ? encrypt(parsed.braveApiKey) : null;
 
-    if (parsed.modelApiKey) {
-      const encrypted = encrypt(parsed.modelApiKey);
+    if (encryptedModelApiKey || encryptedBraveApiKey) {
       await getPool().query(
         `UPDATE app_settings
          SET model_base_url = $1,
              model_name = $2,
-             model_api_key_enc = $3,
+             model_api_key_enc = COALESCE($3, model_api_key_enc),
+             brave_api_key_enc = COALESCE($4, brave_api_key_enc),
              updated_at = NOW()
          WHERE id = 1`,
-        [parsed.modelBaseUrl, parsed.modelName, encrypted]
+        [parsed.modelBaseUrl, parsed.modelName, encryptedModelApiKey, encryptedBraveApiKey]
       );
     } else {
       await getPool().query(

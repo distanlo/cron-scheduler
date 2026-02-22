@@ -8,7 +8,8 @@ export async function GET() {
   try {
     const result = await getPool().query<CronJobRow>(
       `SELECT id, title, prompt, is_recurring, recurrence, recurring_time, recurring_weekday,
-              run_at, next_run, discord_webhook_url, status, last_run_at, last_output,
+              run_at, next_run, use_web_search, web_search_query, web_result_count,
+              web_freshness_hours, preferred_domains_csv, discord_webhook_url, status, last_run_at, last_output,
               created_at, updated_at
        FROM cron_jobs
        ORDER BY created_at DESC`
@@ -44,9 +45,14 @@ export async function POST(request: Request) {
         recurring_weekday,
         run_at,
         next_run,
+        use_web_search,
+        web_search_query,
+        web_result_count,
+        web_freshness_hours,
+        preferred_domains_csv,
         discord_webhook_url,
         status
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active')`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'active')`,
       [
         parsed.title,
         parsed.prompt,
@@ -56,6 +62,11 @@ export async function POST(request: Request) {
         parsed.recurringWeekday,
         parsed.runAt,
         nextRun.toISOString(),
+        parsed.useWebSearch,
+        parsed.webSearchQuery,
+        parsed.webResultCount,
+        parsed.webFreshnessHours,
+        parsed.preferredDomainsCsv,
         parsed.discordWebhookUrl
       ]
     );

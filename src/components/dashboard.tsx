@@ -9,22 +9,36 @@ type DashboardProps = {
   dbConfigured: boolean;
 };
 
+function toUtcIsoFromParts(datePart: string, timePart: string): string | null {
+  if (!datePart || !timePart) {
+    return null;
+  }
+  return new Date(`${datePart}T${timePart}:00Z`).toISOString();
+}
+
+function parseUtcTime(raw: string): string | null {
+  const value = raw.trim();
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : null;
+}
+
 export function Dashboard({ dbConfigured }: DashboardProps) {
   const [settingsMsg, setSettingsMsg] = useState("");
   const [jobMsg, setJobMsg] = useState("");
 
   const [isRecurring, setIsRecurring] = useState(true);
   const [recurrence, setRecurrence] = useState<RecurrenceType>("hourly_1");
+  const [useWebSearch, setUseWebSearch] = useState(false);
 
   const weekdayNeeded = recurrence === "weekly";
-  const runAtMin = useMemo(() => new Date().toISOString().slice(0, 16), []);
+  const utcDateMin = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   async function handleSettings(formData: FormData) {
     setSettingsMsg("Saving settings...");
     const payload = {
       modelBaseUrl: String(formData.get("modelBaseUrl") || ""),
       modelName: String(formData.get("modelName") || ""),
-      modelApiKey: String(formData.get("modelApiKey") || "") || undefined
+      modelApiKey: String(formData.get("modelApiKey") || "") || undefined,
+      braveApiKey: String(formData.get("braveApiKey") || "") || undefined
     };
 
     const response = await fetch("/api/settings", {
@@ -39,22 +53,40 @@ export function Dashboard({ dbConfigured }: DashboardProps) {
 
   async function handleCreateJob(formData: FormData) {
     setJobMsg("Creating job...");
+    const recurringTime = parseUtcTime(String(formData.get("recurringTime") || ""));
+    const runAtTime = parseUtcTime(String(formData.get("runAtTime") || ""));
+
+    if (isRecurring && !recurringTime) {
+      setJobMsg("Error: time must be HH:mm in UTC (example: 23:47)");
+      return;
+    }
+    if (!isRecurring && !runAtTime) {
+      setJobMsg("Error: one-time time must be HH:mm in UTC (example: 23:47)");
+      return;
+    }
 
     const payload = {
       title: String(formData.get("title") || ""),
       prompt: String(formData.get("prompt") || ""),
       isRecurring,
       recurrence: isRecurring ? String(formData.get("recurrence") || "") : null,
-      recurringTime: isRecurring ? String(formData.get("recurringTime") || "") : null,
+      recurringTime: isRecurring ? recurringTime : null,
       recurringWeekday:
         isRecurring && recurrence === "weekly"
           ? Number(formData.get("recurringWeekday"))
           : null,
       runAt: !isRecurring
         ? (() => {
-            const value = String(formData.get("runAt") || "");
-            return value ? new Date(value).toISOString() : null;
+            const datePart = String(formData.get("runAtDate") || "");
+            return toUtcIsoFromParts(datePart, runAtTime ?? "");
           })()
+        : null,
+      useWebSearch,
+      webSearchQuery: useWebSearch ? String(formData.get("webSearchQuery") || "") || null : null,
+      webResultCount: useWebSearch ? Number(formData.get("webResultCount") || 5) : 5,
+      webFreshnessHours: useWebSearch ? Number(formData.get("webFreshnessHours") || 72) : 72,
+      preferredDomainsCsv: useWebSearch
+        ? String(formData.get("preferredDomainsCsv") || "") || null
         : null,
       discordWebhookUrl: String(formData.get("discordWebhookUrl") || "")
     };
@@ -115,6 +147,9 @@ export function Dashboard({ dbConfigured }: DashboardProps) {
 
             <label htmlFor="modelApiKey">OpenRouter API Key</label>
             <input id="modelApiKey" name="modelApiKey" type="password" placeholder="sk-or-v1-..." />
+
+            <label htmlFor="braveApiKey">Brave Search API Key</label>
+            <input id="braveApiKey" name="braveApiKey" type="password" placeholder="BSA..." />
 
             <button type="submit" className="btn primary">Save Model Settings</button>
             <div className="msg">{settingsMsg}</div>
@@ -190,8 +225,15 @@ export function Dashboard({ dbConfigured }: DashboardProps) {
                 </div>
 
                 <div>
-                  <label htmlFor="recurringTime">Time (UTC)</label>
-                  <input id="recurringTime" name="recurringTime" type="time" required />
+                  <label htmlFor="recurringTime">Time (UTC, HH:mm)</label>
+                  <input
+                    id="recurringTime"
+                    name="recurringTime"
+                    type="text"
+                    placeholder="23:00"
+                    inputMode="numeric"
+                    required
+                  />
                 </div>
 
                 {weekdayNeeded ? (
@@ -209,10 +251,65 @@ export function Dashboard({ dbConfigured }: DashboardProps) {
               </>
             ) : (
               <div>
-                <label htmlFor="runAt">Run At (UTC)</label>
-                <input id="runAt" name="runAt" type="datetime-local" min={runAtMin} required />
+                <label htmlFor="runAtDate">Run At Date (UTC)</label>
+                <input id="runAtDate" name="runAtDate" type="date" min={utcDateMin} required />
+                <label htmlFor="runAtTime">Run At Time (UTC, HH:mm)</label>
+                <input
+                  id="runAtTime"
+                  name="runAtTime"
+                  type="text"
+                  placeholder="23:00"
+                  inputMode="numeric"
+                  required
+                />
               </div>
             )}
+          </div>
+
+          <div className="content-grid">
+            <div>
+              <label htmlFor="useWebSearch">Live Web Grounding</label>
+              <select
+                id="useWebSearch"
+                value={useWebSearch ? "enabled" : "disabled"}
+                onChange={(event) => setUseWebSearch(event.target.value === "enabled")}
+              >
+                <option value="disabled">Disabled</option>
+                <option value="enabled">Use Brave Search</option>
+              </select>
+            </div>
+
+            {useWebSearch ? (
+              <>
+                <div>
+                  <label htmlFor="webSearchQuery">Web Query (optional)</label>
+                  <input id="webSearchQuery" name="webSearchQuery" placeholder="Top Reuters world headlines today" />
+                </div>
+                <div>
+                  <label htmlFor="webResultCount">Result Count (1-10)</label>
+                  <input id="webResultCount" name="webResultCount" type="number" min={1} max={10} defaultValue={5} />
+                </div>
+                <div>
+                  <label htmlFor="webFreshnessHours">Freshness Window (hours)</label>
+                  <input
+                    id="webFreshnessHours"
+                    name="webFreshnessHours"
+                    type="number"
+                    min={1}
+                    max={720}
+                    defaultValue={72}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="preferredDomainsCsv">Preferred Domains (comma-separated)</label>
+                  <input
+                    id="preferredDomainsCsv"
+                    name="preferredDomainsCsv"
+                    placeholder="reuters.com, apnews.com, bbc.com"
+                  />
+                </div>
+              </>
+            ) : null}
           </div>
 
           <button type="submit" className="btn primary">Create Job</button>
