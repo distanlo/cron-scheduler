@@ -27,7 +27,7 @@ export function Dashboard({ dbConfigured }: DashboardProps) {
 
   const [isRecurring, setIsRecurring] = useState(true);
   const [recurrence, setRecurrence] = useState<RecurrenceType>("hourly_1");
-  const [useWebSearch, setUseWebSearch] = useState(false);
+  const [contextSource, setContextSource] = useState<"none" | "brave_search" | "json_url" | "markdown_url">("none");
 
   const weekdayNeeded = recurrence === "weekly";
   const utcDateMin = useMemo(() => new Date().toISOString().slice(0, 10), []);
@@ -81,11 +81,16 @@ export function Dashboard({ dbConfigured }: DashboardProps) {
             return toUtcIsoFromParts(datePart, runAtTime ?? "");
           })()
         : null,
-      useWebSearch,
-      webSearchQuery: useWebSearch ? String(formData.get("webSearchQuery") || "") || null : null,
-      webResultCount: useWebSearch ? Number(formData.get("webResultCount") || 5) : 5,
-      webFreshnessHours: useWebSearch ? Number(formData.get("webFreshnessHours") || 72) : 72,
-      preferredDomainsCsv: useWebSearch
+      useWebSearch: contextSource === "brave_search",
+      contextSource,
+      contextUrl:
+        contextSource === "json_url" || contextSource === "markdown_url"
+          ? String(formData.get("contextUrl") || "") || null
+          : null,
+      webSearchQuery: contextSource === "brave_search" ? String(formData.get("webSearchQuery") || "") || null : null,
+      webResultCount: contextSource === "brave_search" ? Number(formData.get("webResultCount") || 5) : 5,
+      webFreshnessHours: contextSource === "brave_search" ? Number(formData.get("webFreshnessHours") || 72) : 72,
+      preferredDomainsCsv: contextSource === "brave_search"
         ? String(formData.get("preferredDomainsCsv") || "") || null
         : null,
       discordWebhookUrl: String(formData.get("discordWebhookUrl") || "")
@@ -268,18 +273,22 @@ export function Dashboard({ dbConfigured }: DashboardProps) {
 
           <div className="content-grid">
             <div>
-              <label htmlFor="useWebSearch">Live Web Grounding</label>
+              <label htmlFor="contextSource">Live Data Source</label>
               <select
-                id="useWebSearch"
-                value={useWebSearch ? "enabled" : "disabled"}
-                onChange={(event) => setUseWebSearch(event.target.value === "enabled")}
+                id="contextSource"
+                value={contextSource}
+                onChange={(event) =>
+                  setContextSource(event.target.value as "none" | "brave_search" | "json_url" | "markdown_url")
+                }
               >
-                <option value="disabled">Disabled</option>
-                <option value="enabled">Use Brave Search</option>
+                <option value="none">Disabled</option>
+                <option value="brave_search">Use Brave Search</option>
+                <option value="json_url">JSON Link</option>
+                <option value="markdown_url">Markdown Link</option>
               </select>
             </div>
 
-            {useWebSearch ? (
+            {contextSource === "brave_search" ? (
               <>
                 <div>
                   <label htmlFor="webSearchQuery">Web Query (optional)</label>
@@ -309,6 +318,19 @@ export function Dashboard({ dbConfigured }: DashboardProps) {
                   />
                 </div>
               </>
+            ) : null}
+
+            {contextSource === "json_url" || contextSource === "markdown_url" ? (
+              <div>
+                <label htmlFor="contextUrl">Source URL</label>
+                <input
+                  id="contextUrl"
+                  name="contextUrl"
+                  type="url"
+                  placeholder="https://example.com/data.json"
+                  required
+                />
+              </div>
             ) : null}
           </div>
 

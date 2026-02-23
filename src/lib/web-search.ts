@@ -39,7 +39,7 @@ function normalizeDomains(csv: string | null): string[] {
 }
 
 export async function buildLiveWebContext(job: CronJobRow): Promise<string | null> {
-  if (!job.use_web_search) {
+  if (!(job.use_web_search || job.context_source === "brave_search")) {
     return null;
   }
 
@@ -124,4 +124,29 @@ export function composeGroundedPrompt(basePrompt: string, context: string): stri
     "USER REQUEST:",
     basePrompt
   ].join("\n");
+}
+
+export async function buildUrlContext(job: CronJobRow): Promise<string | null> {
+  if (!job.context_url) {
+    return null;
+  }
+
+  const response = await fetch(job.context_url, {
+    method: "GET",
+    headers: {
+      Accept: job.context_source === "json_url" ? "application/json" : "text/markdown,text/plain"
+    }
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Context URL fetch failed (${response.status}): ${body}`);
+  }
+
+  const text =
+    job.context_source === "json_url"
+      ? JSON.stringify(await response.json(), null, 2)
+      : await response.text();
+
+  return text.slice(0, 20000);
 }

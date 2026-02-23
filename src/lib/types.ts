@@ -26,6 +26,8 @@ export type CronJobRow = {
   web_result_count: number;
   web_freshness_hours: number;
   preferred_domains_csv: string | null;
+  context_source: "none" | "brave_search" | "json_url" | "markdown_url";
+  context_url: string | null;
   discord_webhook_url: string;
   status: string;
   last_run_at: string | null;

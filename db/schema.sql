@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS cron_jobs (
   web_result_count SMALLINT NOT NULL DEFAULT 5,
   web_freshness_hours INTEGER NOT NULL DEFAULT 72,
   preferred_domains_csv TEXT,
+  context_source TEXT NOT NULL DEFAULT 'none',
+  context_url TEXT,
   discord_webhook_url TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
   last_run_at TIMESTAMPTZ,
@@ -75,3 +77,9 @@ ADD COLUMN IF NOT EXISTS web_freshness_hours INTEGER NOT NULL DEFAULT 72;
 
 ALTER TABLE cron_jobs
 ADD COLUMN IF NOT EXISTS preferred_domains_csv TEXT;
+
+ALTER TABLE cron_jobs
+ADD COLUMN IF NOT EXISTS context_source TEXT NOT NULL DEFAULT 'none';
+
+ALTER TABLE cron_jobs
+ADD COLUMN IF NOT EXISTS context_url TEXT;

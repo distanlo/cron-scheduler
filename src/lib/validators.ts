@@ -21,6 +21,8 @@ const baseJobSchema = z.object({
   webResultCount: z.number().int().min(1).max(10).default(5),
   webFreshnessHours: z.number().int().min(1).max(720).default(72),
   preferredDomainsCsv: z.string().nullable(),
+  contextSource: z.enum(["none", "brave_search", "json_url", "markdown_url"]).default("none"),
+  contextUrl: z.string().url().nullable(),
   discordWebhookUrl: z.string().url()
 });
 
@@ -38,6 +40,13 @@ function withScheduleValidation<T extends z.ZodTypeAny>(schema: T) {
       }
     } else if (!value.runAt) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "runAt is required for one-time jobs" });
+    }
+
+    if ((value.contextSource === "json_url" || value.contextSource === "markdown_url") && !value.contextUrl) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "contextUrl is required for json_url and markdown_url"
+      });
     }
   });
 }

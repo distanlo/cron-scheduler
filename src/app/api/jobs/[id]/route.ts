@@ -32,10 +32,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
            web_result_count = $11,
            web_freshness_hours = $12,
            preferred_domains_csv = $13,
-           discord_webhook_url = $14,
-           status = COALESCE($15, status),
+           context_source = $14,
+           context_url = $15,
+           discord_webhook_url = $16,
+           status = COALESCE($17, status),
            updated_at = NOW()
-       WHERE id = $16`,
+       WHERE id = $18`,
       [
         parsed.title,
         parsed.prompt,
@@ -50,6 +52,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         parsed.webResultCount,
         parsed.webFreshnessHours,
         parsed.preferredDomainsCsv,
+        parsed.contextSource,
+        parsed.contextUrl,
         parsed.discordWebhookUrl,
         parsed.status,
         id

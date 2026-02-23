@@ -57,7 +57,7 @@ export function JobsManager({ initialJobs }: JobsManagerProps) {
   async function saveJob(formData: FormData, jobId: string) {
     setMsg("Saving job...");
     const isRecurring = String(formData.get("isRecurring") || "") === "recurring";
-    const useWebSearch = String(formData.get("useWebSearch") || "") === "enabled";
+    const contextSource = String(formData.get("contextSource") || "none");
     const recurrence = String(formData.get("recurrence") || "") as RecurrenceType;
     const recurringTime = parseUtcTime(String(formData.get("recurringTime") || ""));
     const runAtTime = parseUtcTime(String(formData.get("runAtTime") || ""));
@@ -85,11 +85,16 @@ export function JobsManager({ initialJobs }: JobsManagerProps) {
             return toUtcIsoFromParts(datePart, runAtTime ?? "");
           })()
         : null,
-      useWebSearch,
-      webSearchQuery: useWebSearch ? String(formData.get("webSearchQuery") || "") || null : null,
-      webResultCount: useWebSearch ? Number(formData.get("webResultCount") || 5) : 5,
-      webFreshnessHours: useWebSearch ? Number(formData.get("webFreshnessHours") || 72) : 72,
-      preferredDomainsCsv: useWebSearch
+      useWebSearch: contextSource === "brave_search",
+      contextSource,
+      contextUrl:
+        contextSource === "json_url" || contextSource === "markdown_url"
+          ? String(formData.get("contextUrl") || "") || null
+          : null,
+      webSearchQuery: contextSource === "brave_search" ? String(formData.get("webSearchQuery") || "") || null : null,
+      webResultCount: contextSource === "brave_search" ? Number(formData.get("webResultCount") || 5) : 5,
+      webFreshnessHours: contextSource === "brave_search" ? Number(formData.get("webFreshnessHours") || 72) : 72,
+      preferredDomainsCsv: contextSource === "brave_search"
         ? String(formData.get("preferredDomainsCsv") || "") || null
         : null,
       discordWebhookUrl: String(formData.get("discordWebhookUrl") || ""),
@@ -267,53 +272,37 @@ export function JobsManager({ initialJobs }: JobsManagerProps) {
                 />
               </div>
               <div>
-                <label htmlFor="edit-use-web-search">Live Web Grounding</label>
+                <label htmlFor="edit-context-source">Live Data Source</label>
                 <select
-                  id="edit-use-web-search"
-                  name="useWebSearch"
-                  defaultValue={activeEditJob.use_web_search ? "enabled" : "disabled"}
+                  id="edit-context-source"
+                  name="contextSource"
+                  defaultValue={activeEditJob.context_source ?? (activeEditJob.use_web_search ? "brave_search" : "none")}
                 >
-                  <option value="disabled">Disabled</option>
-                  <option value="enabled">Use Brave Search</option>
+                  <option value="none">Disabled</option>
+                  <option value="brave_search">Use Brave Search</option>
+                  <option value="json_url">JSON Link</option>
+                  <option value="markdown_url">Markdown Link</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="edit-web-search-query">Web Query (optional)</label>
-                <input
-                  id="edit-web-search-query"
-                  name="webSearchQuery"
-                  defaultValue={activeEditJob.web_search_query ?? ""}
-                />
+                <label htmlFor="edit-context-url">Source URL (for JSON/Markdown)</label>
+                <input id="edit-context-url" name="contextUrl" type="url" defaultValue={activeEditJob.context_url ?? ""} />
               </div>
               <div>
-                <label htmlFor="edit-web-result-count">Result Count (1-10)</label>
-                <input
-                  id="edit-web-result-count"
-                  name="webResultCount"
-                  type="number"
-                  min={1}
-                  max={10}
-                  defaultValue={activeEditJob.web_result_count ?? 5}
-                />
+                <label htmlFor="edit-web-search-query">Brave Query (optional)</label>
+                <input id="edit-web-search-query" name="webSearchQuery" defaultValue={activeEditJob.web_search_query ?? ""} />
               </div>
               <div>
-                <label htmlFor="edit-web-freshness-hours">Freshness Window (hours)</label>
-                <input
-                  id="edit-web-freshness-hours"
-                  name="webFreshnessHours"
-                  type="number"
-                  min={1}
-                  max={720}
-                  defaultValue={activeEditJob.web_freshness_hours ?? 72}
-                />
+                <label htmlFor="edit-web-result-count">Brave Result Count (1-10)</label>
+                <input id="edit-web-result-count" name="webResultCount" type="number" min={1} max={10} defaultValue={activeEditJob.web_result_count ?? 5} />
               </div>
               <div>
-                <label htmlFor="edit-preferred-domains">Preferred Domains (comma-separated)</label>
-                <input
-                  id="edit-preferred-domains"
-                  name="preferredDomainsCsv"
-                  defaultValue={activeEditJob.preferred_domains_csv ?? ""}
-                />
+                <label htmlFor="edit-web-freshness-hours">Brave Freshness Window (hours)</label>
+                <input id="edit-web-freshness-hours" name="webFreshnessHours" type="number" min={1} max={720} defaultValue={activeEditJob.web_freshness_hours ?? 72} />
+              </div>
+              <div>
+                <label htmlFor="edit-preferred-domains">Brave Preferred Domains (comma-separated)</label>
+                <input id="edit-preferred-domains" name="preferredDomainsCsv" defaultValue={activeEditJob.preferred_domains_csv ?? ""} />
               </div>
             </div>
 
